@@ -35,7 +35,7 @@ def get_measurement_points(client: InfluxDBClient, station: str):
         f'from(bucket: "{BUCKET}")\n'
         f"  |> range(start: -1y)\n"
         f'  |> filter(fn: (r) => r["station"] == "{station}")\n'
-        f'  |> filter(fn: (r) => r["_field"] == "value")\n'
+        f'  |> filter(fn: (r) => r["quality"] == "100")\n'
         f'  |> group(columns: ["_measurement", "station", "_field"])\n'
         f"  |> aggregateWindow(every: 1d, fn: mean, createEmpty: true)\n"
         f'  |> yield(name: "mean")'
@@ -76,37 +76,45 @@ def main():
     stations = get_stations(client)
     measurements = get_measurements(client)
 
-    progress = 0
+    completed = 0
     total = len(stations)
 
     # Get measurements for each station
     for station in stations:
-        csv_file_path = os.path.join(args.output, f"{station}_measurements.csv")
+        # new folder every 100 stations to keep performance
+        folder_index = completed // 100
+        folder_path = os.path.join(args.output, f"batch_{folder_index}")
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path, exist_ok=True)
 
-        with open(csv_file_path, "w") as csv_file:
-            # Write CSV header
-            header = "time," + ",".join(measurements) + "\n"
-            csv_file.write(header)
+        csv_file_path = os.path.join(folder_path, f"{station}_measurements.csv")
 
-            # Prepare data dictionary
-            data_dict: dict[str, dict[str, float]] = {}
-            for measurement in measurements:
-                points = get_measurement_points(client, station).get(measurement, [])
-                for point in points:
-                    if point.time not in data_dict:
-                        data_dict[point.time] = {}
-                    data_dict[point.time][measurement] = point.value
+        # Check if file already exists
+        if not os.path.exists(csv_file_path):
+            with open(csv_file_path, "w") as csv_file:
+                # Write CSV header
+                header = "time," + ",".join(measurements) + "\n"
+                csv_file.write(header)
 
-            # Write data rows
-            for time in sorted(data_dict.keys()):
-                row = [str(time)]
+                # Prepare data dictionary
+                data_dict: dict[str, dict[str, float]] = {}
                 for measurement in measurements:
-                    value = data_dict[time].get(measurement, None)
-                    row.append(str(value) if value is not None else "")
-                csv_file.write(",".join(row) + "\n")
+                    points = get_measurement_points(client, station).get(measurement, [])
+                    for point in points:
+                        if point.time not in data_dict:
+                            data_dict[point.time] = {}
+                        data_dict[point.time][measurement] = point.value
 
-        progress += 1
-        print(f"Progress: {progress}/{total} stations processed.")
+                # Write data rows
+                for time in sorted(data_dict.keys()):
+                    row = [str(time)]
+                    for measurement in measurements:
+                        value = data_dict[time].get(measurement, None)
+                        row.append(str(value) if value is not None else "")
+                    csv_file.write(",".join(row) + "\n")
+
+        completed += 1
+        print(f"Progress: {completed}/{total} stations processed.")
 
 
 if __name__ == "__main__":
