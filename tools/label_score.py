@@ -72,7 +72,7 @@ def load_data():
     return turbine_coords, station_data_df
 
 
-def process_batch(batch_folder, output_dir, station_data_df, score_lookup):
+def process_batch(batch_folder, output_dir, score_lookup):
     output_batch_folder = output_dir / batch_folder.name
     output_batch_folder.mkdir(exist_ok=True)
     
@@ -90,7 +90,7 @@ def process_batch(batch_folder, output_dir, station_data_df, score_lookup):
         try:
             df = pd.read_csv(csv_file)
             df['TurbineScore'] = turbine_score
-            
+
             output_file = output_batch_folder / csv_file.name
             df.to_csv(output_file, index=False)
             files_processed += 1
@@ -125,11 +125,11 @@ def label_mesonet_data():
 
     for batch_folder in batch_folders:
         print(f"  Processing {batch_folder.name}...")
-        files_processed = process_batch(batch_folder, output_dir, station_data_df, score_lookup)
+        files_processed = process_batch(batch_folder, output_dir, score_lookup)
         total_files += files_processed
     
     print(f"\n{'=' * 60}")
-    print(f"Completed! Processed {total_files} measurement files across {len(batch_folders)} batches")
+    print(f"Processed {total_files} measurement files across {len(batch_folders)} batches")
     print(f"Output saved to: {output_dir.absolute()}")
     print(f"{'=' * 60}")
     
