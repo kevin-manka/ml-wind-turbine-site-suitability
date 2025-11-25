@@ -31,16 +31,15 @@ def calculate_closest5_average(station_lat, station_lon, turbine_coords):
     return np.mean(closest_5)
 
 
-def normalize_score(avg_distance, max_distance):
-    # (0 = furthest, 1 = closest; normalized by the max. average distance in dataset)
-    normalized_score = avg_distance / max_distance
-    turbine_score = 1 - normalized_score
+def compute_score(avg_dist, std_dev, overall_avg, threshold):
+    z_score = (avg_dist - overall_avg) / std_dev
+    turbine_score = 1 if z_score <= threshold else 0
     
     return turbine_score
 
 
-def compute_all_station_scores(station_data_df, turbine_coords):
-    print(f"Computing scores for {len(station_data_df)} stations...")
+def compute_all_station_distances(station_data_df, turbine_coords):
+    print(f"Computing average distances for {len(station_data_df)} stations...")
     
     turbine_array = turbine_coords.values if isinstance(turbine_coords, pd.DataFrame) else turbine_coords
     
@@ -57,8 +56,14 @@ def compute_all_station_scores(station_data_df, turbine_coords):
     
     max_distance = max(distances_dict.values())
     print(f"Maximum closest-5 average distance: {max_distance:.2f} km\n")
+
+    # Getting average of averages and standard deviation for threshold calculation
+    overall_avg_distance = np.mean(list(distances_dict.values()))
+    print(f"Overall average of closest-5 averages: {overall_avg_distance:.2f} km\n")
+
+    std_dev = np.std(list(distances_dict.values()))
     
-    return distances_dict, max_distance
+    return distances_dict, overall_avg_distance, std_dev
 
 
 def load_data():
@@ -111,11 +116,15 @@ def label_mesonet_data():
     print(f"  Loaded {len(turbine_coords)} turbines")
     print(f"  Loaded {len(station_data_df)} stations\n")
     
-    distances_dict, max_distance = compute_all_station_scores(station_data_df, turbine_coords)
-    
+    distances_dict, overall_avg, std_dev = compute_all_station_distances(station_data_df, turbine_coords)
+
+    EFFECTIVE_DISDROMETER_RANGE = 100 # km
+    threshold = (EFFECTIVE_DISDROMETER_RANGE - overall_avg) / std_dev
+    print(f"Using threshold z-score: {threshold:.2f}\n")
+
     # Score lookup with normalized values
     score_lookup = {
-        station_id: normalize_score(avg_dist, max_distance)
+        station_id: compute_score(avg_dist, std_dev, overall_avg, threshold)
         for station_id, avg_dist in distances_dict.items()
     }
     
