@@ -18,7 +18,7 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     return c * r
 
 
-def calculate_closest5_average(station_lat, station_lon, turbine_coords):
+def calculate_closest3_average(station_lat, station_lon, turbine_coords):
     distances = []
     
     for turbine_lat, turbine_lon in turbine_coords:
@@ -26,14 +26,22 @@ def calculate_closest5_average(station_lat, station_lon, turbine_coords):
         distances.append(dist)
     
     distances.sort()
-    closest_5 = distances[:5] # Average of 5 closest turbines
+    closest_3 = distances[:3] # Average of 3 closest turbines
     
-    return np.mean(closest_5)
+    return np.mean(closest_3)
 
 
-def compute_score(avg_dist, std_dev, overall_avg, threshold):
-    z_score = (avg_dist - overall_avg) / std_dev
-    turbine_score = 1 if z_score <= threshold else 0
+def compute_score(distance, min_distance, max_distance):
+    def min_max_normalize(value, min_val, max_val):
+        return (value - min_val) / (max_val - min_val)
+
+
+    EFFECTIVE_RANGE = 100 # km
+    threshold = min_max_normalize(EFFECTIVE_RANGE, min_distance, max_distance)
+
+    # Computing score with min-max normalization and classifying based on effective range threshold
+    normalized_score = min_max_normalize(distance, min_distance, max_distance)
+    turbine_score = 1 if normalized_score >= threshold else 0 
     
     return turbine_score
 
@@ -48,22 +56,19 @@ def compute_all_station_distances(station_data_df, turbine_coords):
         station_lat = group['lat'].values[0]
         station_lon = group['lon'].values[0]
         
-        avg_distance = calculate_closest5_average(station_lat, station_lon, turbine_array)
+        avg_distance = calculate_closest3_average(station_lat, station_lon, turbine_array)
         distances_dict[station_id] = avg_distance
         
         if (idx + 1) % 20 == 0:
             print(f"  Processed {idx + 1}/{len(station_data_df)} stations...")
-    
+
+    min_distance = min(distances_dict.values())
+    print(f"\nMinimum closest-3 average distance: {min_distance:.2f} km\n")
+
     max_distance = max(distances_dict.values())
-    print(f"Maximum closest-5 average distance: {max_distance:.2f} km\n")
-
-    # Getting average of averages and standard deviation for threshold calculation
-    overall_avg_distance = np.mean(list(distances_dict.values()))
-    print(f"Overall average of closest-5 averages: {overall_avg_distance:.2f} km\n")
-
-    std_dev = np.std(list(distances_dict.values()))
+    print(f"Maximum closest-3 average distance: {max_distance:.2f} km")
     
-    return distances_dict, overall_avg_distance, std_dev
+    return distances_dict, min_distance, max_distance
 
 
 def load_data():
@@ -116,16 +121,12 @@ def label_mesonet_data():
     print(f"  Loaded {len(turbine_coords)} turbines")
     print(f"  Loaded {len(station_data_df)} stations\n")
     
-    distances_dict, overall_avg, std_dev = compute_all_station_distances(station_data_df, turbine_coords)
-
-    EFFECTIVE_DISDROMETER_RANGE = 100 # km
-    threshold = (EFFECTIVE_DISDROMETER_RANGE - overall_avg) / std_dev
-    print(f"Using threshold z-score: {threshold:.2f}\n")
+    distances_dict, min_distance, max_distance = compute_all_station_distances(station_data_df, turbine_coords)
 
     # Score lookup with normalized values
     score_lookup = {
-        station_id: compute_score(avg_dist, std_dev, overall_avg, threshold)
-        for station_id, avg_dist in distances_dict.items()
+        station_id: compute_score(distance, min_distance, max_distance)
+        for station_id, distance in distances_dict.items()
     }
     
     print("Processing measurement files...")
