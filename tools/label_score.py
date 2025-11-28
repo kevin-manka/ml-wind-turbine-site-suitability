@@ -33,11 +33,9 @@ def calculate_closest3_average(station_lat, station_lon, turbine_coords):
 
 def compute_score(distance, min_distance, max_distance):
     def min_max_normalize(value, min_val, max_val):
-        return (value - min_val) / (max_val - min_val)
-
-
-    EFFECTIVE_RANGE = 100 # km
-    threshold = min_max_normalize(EFFECTIVE_RANGE, min_distance, max_distance)
+        return (np.log(value) - np.log(min_val)) / (np.log(max_val) - np.log(min_val))
+    
+    threshold = 0.8
 
     # Computing score with min-max normalization and classifying based on effective range threshold
     normalized_score = min_max_normalize(distance, min_distance, max_distance)
@@ -61,6 +59,9 @@ def compute_all_station_distances(station_data_df, turbine_coords):
         
         if (idx + 1) % 20 == 0:
             print(f"  Processed {idx + 1}/{len(station_data_df)} stations...")
+
+    # Remove stations 1000km away for min/max calculation
+    distances_dict = {station_id: dist for station_id, dist in distances_dict.items() if dist <= 1000}
 
     min_distance = min(distances_dict.values())
     print(f"\nMinimum closest-3 average distance: {min_distance:.2f} km\n")
