@@ -35,7 +35,7 @@ def compute_score(distance, min_distance, max_distance):
     def min_max_normalize(value, min_val, max_val):
         return (np.log(value) - np.log(min_val)) / (np.log(max_val) - np.log(min_val))
     
-    threshold = 0.8
+    threshold = 0.8 # (Effective range threshold normalized based on 200 km)
 
     # Computing score with min-max normalization and classifying based on effective range threshold
     normalized_score = min_max_normalize(distance, min_distance, max_distance)
@@ -60,7 +60,7 @@ def compute_all_station_distances(station_data_df, turbine_coords):
         if (idx + 1) % 20 == 0:
             print(f"  Processed {idx + 1}/{len(station_data_df)} stations...")
 
-    # Remove stations 1000km away for min/max calculation
+    # Removing stations more than 1000 km away for min/max calculation
     distances_dict = {station_id: dist for station_id, dist in distances_dict.items() if dist <= 1000}
 
     min_distance = min(distances_dict.values())
