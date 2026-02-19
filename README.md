@@ -1,7 +1,5 @@
 # Machine Learning-Driven Assessment of Wind Turbine Site Suitability Using High-Resolution Meteorological Data
 
-#### DS 3000A<br>Final Project<br>9 December 2025<br>Nilufer Karaman, Kevin Manka, David Tam, Collin Town (Group 10)
-
 ## Overview
 
 This repository contains all source code and documentation related to the project, which evaluates whether machine learning can improve the identification of suitable locations for wind turbine deployment in Canada with the use of data from 2,741 weather stations in the Canadian Mesonet and the Government of Canada’s wind turbine database. After labelling turbine suitability on weather measurement samples and preprocessing, six machine learning models were trained and tested, with tree-based models achieving the highest performance.
